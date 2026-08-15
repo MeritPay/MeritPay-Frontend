@@ -81,6 +81,9 @@ export default function VerifyPage() {
       try {
         const parsed = JSON.parse(stored) as EmployeeConfig[];
         if (parsed.length) {
+          // Deferred to the client: reading localStorage during the initial render
+          // would desync from the server-rendered (empty) markup and break hydration.
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setEmployees(parsed);
           setEmpProofs(parsed.map(() => ({ status: 'pending' })));
         }
