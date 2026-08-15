@@ -35,6 +35,9 @@ export default function EmployeePage() {
   const [claimTxHash, setClaimTxHash] = useState('');
 
   useEffect(() => {
+    // Deferred to the client: reading localStorage during the initial render
+    // would desync from the server-rendered (empty) markup and break hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setClaimBundle(loadClaimBundle());
   }, []);
 
@@ -46,6 +49,9 @@ export default function EmployeePage() {
   }, []);
 
   useEffect(() => {
+    // Initial salt on mount only — deferred for the same hydration-safety
+    // reason as the localStorage load above.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshSalt();
   }, [refreshSalt]);
 

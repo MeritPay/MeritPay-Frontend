@@ -25,6 +25,8 @@ export default function ProofBadge({ verified, label, size = 'md', hash }: Proof
   // Retrigger the stamp animation (needs a real timer, so this part stays an effect).
   useEffect(() => {
     if (!verified) return;
+    // Force a false->true flip so the CSS animation restarts even if already stamped.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStamped(false);
     const t = setTimeout(() => setStamped(true), 40);
     return () => clearTimeout(t);
