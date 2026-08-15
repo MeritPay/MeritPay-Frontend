@@ -244,20 +244,6 @@ export async function generatePayrollProof(
     nullifiers,
   };
 
-  console.log('[proof] payroll circuit input:', JSON.stringify({
-    baseSalaries,
-    hoursWorked: hoursWorkedArr,
-    salesFlags: salesFlagsArr,
-    employeeIds,
-    hoursThresholds,
-    totalPayroll: totalCircuit.toString(),
-    payrollEpoch: epoch.toString(),
-    // salts and nullifiers are large; just show lengths
-    saltsLen: saltsArr.length,
-    nullifiersLen: nullifiers.length,
-  }));
-
-  console.log('[proof] calling groth16.fullProve for payroll aggregator...');
   const { proof, publicSignals } = await sjs.groth16.fullProve(
     circuitInput,
     '/circuits/payroll/payroll_aggregator.wasm',
