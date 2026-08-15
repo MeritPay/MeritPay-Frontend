@@ -87,6 +87,12 @@ export default function EmployeePage() {
 
   const handleClaimSalary = async () => {
     if (!selectedClaim || claimAlreadyDone || !walletAddress) return;
+    // Validate wallet address format
+    if (!walletAddress.startsWith('G') || walletAddress.length !== 56) {
+      setClaimError('Invalid wallet address format');
+      setClaimState('error');
+      return;
+    }
     setClaimState('claiming');
     setClaimError('');
     setClaimTxHash('');
