@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface ProofBadgeProps {
   verified: boolean;
@@ -14,16 +14,20 @@ const SIZE = { sm: 72, md: 108, lg: 160 };
 export default function ProofBadge({ verified, label, size = 'md', hash }: ProofBadgeProps) {
   const d = SIZE[size];
   const [stamped, setStamped] = useState(false);
-  const prev = useRef(false);
 
-  useEffect(() => {
-    if (verified && !prev.current) {
-      setStamped(false);
-      const t = setTimeout(() => setStamped(true), 40);
-      return () => clearTimeout(t);
-    }
+  // Reset immediately, during render, when `verified` flips to false.
+  const [prevVerified, setPrevVerified] = useState(verified);
+  if (verified !== prevVerified) {
+    setPrevVerified(verified);
     if (!verified) setStamped(false);
-    prev.current = verified;
+  }
+
+  // Retrigger the stamp animation (needs a real timer, so this part stays an effect).
+  useEffect(() => {
+    if (!verified) return;
+    setStamped(false);
+    const t = setTimeout(() => setStamped(true), 40);
+    return () => clearTimeout(t);
   }, [verified]);
 
   const r = d / 2;
