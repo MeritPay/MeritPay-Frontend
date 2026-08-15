@@ -88,6 +88,9 @@ export default function EmployerPage() {
         const parsed = JSON.parse(stored) as EmployeeRow[];
         if (parsed.length) {
           _nextId = Math.max(...parsed.map(r => r.id)) + 1;
+          // Deferred to the client: reading localStorage during the initial render
+          // would desync from the server-rendered (empty) markup and break hydration.
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setRows(parsed);
         }
       } catch { /* ignore */ }
