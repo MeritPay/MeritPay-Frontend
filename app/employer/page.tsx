@@ -35,13 +35,37 @@ function parseCSV(text: string): EmployeeRow[] | string {
   for (let i = 1; i < lines.length && rows.length < MAX_EMPLOYEES; i++) {
     const values = lines[i].split(',').map(v => v.trim());
     const col = (key: string) => values[headers.indexOf(key)] ?? '';
+    
+    const name = col('name').slice(0, 100); // Limit string length
+    const baseSalary = parseFloat(col('base_salary')) || 0;
+    const hoursThreshold = parseInt(col('hours_threshold')) || 160;
+    const hoursBonus = parseFloat(col('hours_bonus')) || 0;
+    const salesBonus = parseFloat(col('sales_bonus')) || 0;
+    
+    // Validate numeric ranges to prevent injection and overflow
+    if (!Number.isFinite(baseSalary) || baseSalary < 0 || baseSalary > 1000000) {
+      return `Row ${i + 1}: Invalid base salary. Must be between 0 and 1,000,000.`;
+    }
+    if (!Number.isFinite(hoursThreshold) || hoursThreshold < 1 || hoursThreshold > 10000) {
+      return `Row ${i + 1}: Invalid hours threshold. Must be between 1 and 10,000.`;
+    }
+    if (!Number.isFinite(hoursBonus) || hoursBonus < 0 || hoursBonus > 100000) {
+      return `Row ${i + 1}: Invalid hours bonus. Must be between 0 and 100,000.`;
+    }
+    if (!Number.isFinite(salesBonus) || salesBonus < 0 || salesBonus > 100000) {
+      return `Row ${i + 1}: Invalid sales bonus. Must be between 0 and 100,000.`;
+    }
+    if (!name || name.length === 0) {
+      return `Row ${i + 1}: Employee name cannot be empty.`;
+    }
+    
     rows.push({
       id: _nextId++,
-      name: col('name'),
-      baseSalary: parseFloat(col('base_salary')) || 0,
-      hoursThreshold: parseInt(col('hours_threshold')) || 160,
-      hoursBonus: parseFloat(col('hours_bonus')) || 0,
-      salesBonus: parseFloat(col('sales_bonus')) || 0,
+      name,
+      baseSalary,
+      hoursThreshold,
+      hoursBonus,
+      salesBonus,
     });
   }
   return rows;
@@ -85,13 +109,23 @@ export default function EmployerPage() {
     const stored = localStorage.getItem('meritpay:payroll-config');
     if (stored) {
       try {
-        const parsed = JSON.parse(stored) as EmployeeRow[];
+        const parsed = JSON.parse(stored);
+        // Validate it's an array of employee rows with required fields
+        if (!Array.isArray(parsed) || !parsed.every(r => 
+          typeof r === 'object' && r !== null &&
+          typeof r.id === 'number' &&
+          typeof r.name === 'string' &&
+          typeof r.baseSalary === 'number' &&
+          typeof r.hoursThreshold === 'number'
+        )) {
+          return;
+        }
         if (parsed.length) {
           _nextId = Math.max(...parsed.map(r => r.id)) + 1;
           // Deferred to the client: reading localStorage during the initial render
           // would desync from the server-rendered (empty) markup and break hydration.
           // eslint-disable-next-line react-hooks/set-state-in-effect
-          setRows(parsed);
+          setRows(parsed as EmployeeRow[]);
         }
       } catch { /* ignore */ }
     }

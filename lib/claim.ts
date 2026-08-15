@@ -30,7 +30,12 @@ export function loadClaimBundle(): ClaimBundle | null {
   const raw = localStorage.getItem(CLAIM_BUNDLE_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as ClaimBundle;
+    const parsed = JSON.parse(raw);
+    // Validate structure to prevent injection attacks
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.entries)) return null;
+    if (typeof parsed.payrollEpoch !== 'number' || typeof parsed.executedAt !== 'number') return null;
+    if (typeof parsed.txHash !== 'string' || parsed.txHash.length === 0) return null;
+    return parsed as ClaimBundle;
   } catch {
     return null;
   }
@@ -67,16 +72,34 @@ export function isEntryClaimed(nullifier: string): boolean {
   const raw = localStorage.getItem('meritpay:claimed-nullifiers');
   if (!raw) return false;
   try {
-    const list = JSON.parse(raw) as string[];
-    return list.includes(nullifier);
+    const parsed = JSON.parse(raw);
+    // Validate it's an array of strings
+    if (!Array.isArray(parsed) || !parsed.every(item => typeof item === 'string')) return false;
+    return parsed.includes(nullifier);
   } catch {
     return false;
   }
 }
 
 export function markEntryClaimed(nullifier: string): void {
+  // Validate nullifier is a string
+  if (typeof nullifier !== 'string' || nullifier.length === 0) return;
+  
   const raw = localStorage.getItem('meritpay:claimed-nullifiers');
-  const list: string[] = raw ? JSON.parse(raw) : [];
+  let list: string[] = [];
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      // Validate it's an array of strings
+      if (!Array.isArray(parsed) || !parsed.every(item => typeof item === 'string')) {
+        list = [];
+      } else {
+        list = parsed;
+      }
+    } catch {
+      list = [];
+    }
+  }
   if (!list.includes(nullifier)) {
     list.push(nullifier);
     localStorage.setItem('meritpay:claimed-nullifiers', JSON.stringify(list));

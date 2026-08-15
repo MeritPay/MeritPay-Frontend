@@ -32,7 +32,8 @@ export default function WalletConnect({ onConnect }: WalletConnectProps) {
     setState('connecting');
     try {
       const pk = await connectWallet();
-      if (pk) {
+      // Validate wallet address format (Stellar public keys start with G and are 56 chars)
+      if (pk && pk.startsWith('G') && pk.length === 56) {
         setAddress(pk);
         setState('connected');
         onConnect?.(pk);
