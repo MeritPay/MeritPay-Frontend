@@ -71,23 +71,38 @@ export default function VerifyPage() {
   const [txError, setTxError] = useState('');
   const [chainEpoch, setChainEpoch] = useState<number>(0);
 
-  const isAdminWallet = !!walletAddress && walletAddress === ADMIN_ADDRESS;
+  // Validate wallet address format before comparison
+  const isValidWalletFormat = walletAddress && walletAddress.startsWith('G') && walletAddress.length === 56;
+  const isAdminWallet = isValidWalletFormat && walletAddress === ADMIN_ADDRESS;
   const nextPayrollEpoch = chainEpoch + 1;
 
   // Load employer config from localStorage
   useEffect(() => {
     const stored = localStorage.getItem('meritpay:payroll-config');
+    let configToLoad: EmployeeConfig[] = [];
+    
     if (stored) {
       try {
-        const parsed = JSON.parse(stored) as EmployeeConfig[];
-        if (parsed.length) {
-          // Deferred to the client: reading localStorage during the initial render
-          // would desync from the server-rendered (empty) markup and break hydration.
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setEmployees(parsed);
-          setEmpProofs(parsed.map(() => ({ status: 'pending' })));
+        const parsed = JSON.parse(stored);
+        // Validate it's an array of employee configs with required fields
+        if (Array.isArray(parsed) && parsed.every(c => 
+          typeof c === 'object' && c !== null &&
+          typeof c.id === 'number' &&
+          typeof c.name === 'string' &&
+          typeof c.baseSalary === 'number' &&
+          typeof c.hoursThreshold === 'number'
+        ) && parsed.length) {
+          configToLoad = parsed as EmployeeConfig[];
         }
       } catch { /* ignore */ }
+    }
+    
+    // Deferred to the client: reading localStorage during the initial render
+    // would desync from the server-rendered (empty) markup and break hydration.
+    if (configToLoad.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEmployees(configToLoad);
+      setEmpProofs(configToLoad.map(() => ({ status: 'pending' })));
     }
     setConfigLoaded(true);
   }, []);
