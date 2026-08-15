@@ -4,11 +4,11 @@ import type { MockProof } from './types';
 import { serializeProof, signalToBytes32 } from './proof';
 
 export const PAYROLL_CONTRACT_ID =
-  process.env.NEXT_PUBLIC_PAYROLL_CONTRACT_ID ?? 'NOT_DEPLOYED';
+  process.env.NEXT_PUBLIC_PAYROLL_CONTRACT_ID ?? '';
 export const CLAIM_CONTRACT_ID =
-  process.env.NEXT_PUBLIC_CLAIM_CONTRACT_ID ?? 'NOT_DEPLOYED';
+  process.env.NEXT_PUBLIC_CLAIM_CONTRACT_ID ?? '';
 export const VERIFIER_CONTRACT_ID =
-  process.env.NEXT_PUBLIC_VERIFIER_CONTRACT_ID ?? 'NOT_DEPLOYED';
+  process.env.NEXT_PUBLIC_VERIFIER_CONTRACT_ID ?? '';
 export const NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015';
 export const RPC_URL = 'https://soroban-testnet.stellar.org';
 export const EXPLORER_URL = 'https://stellar.expert/explorer/testnet';
@@ -89,14 +89,20 @@ async function sendContractTx(
   const { Contract, Transaction, TransactionBuilder, Networks, BASE_FEE, Address, nativeToScVal } = stellar;
   const { Server, assembleTransaction, Api } = rpc;
 
+  // Validate addresses before use
+  if (!publicKey.startsWith('G') || publicKey.length !== 56) {
+    throw new Error('Invalid Stellar public key format');
+  }
+  if (!contractId.startsWith('C') || contractId.length !== 56) {
+    throw new Error('Invalid Stellar contract ID format');
+  }
+  
   const server = new Server(RPC_URL);
-  console.log('[stellar] getAccount', publicKey);
   const account = await server.getAccount(publicKey);
-  console.log('[stellar] account loaded, sequence:', account.sequenceNumber());
   const contract = new Contract(contractId);
 
   // Build ScVal args
-  const scArgs = args.map((a, i) => {
+  const scArgs = args.map((a) => {
     let val;
     if (typeof a === 'bigint') { val = nativeToScVal(a, { type: 'i128' }); }
     else if (a instanceof Uint8Array) { val = nativeToScVal(Buffer.from(a), { type: 'bytes' }); }
@@ -105,7 +111,6 @@ async function sendContractTx(
     }
     else if (typeof a === 'string' && a.startsWith('G')) { val = new Address(a).toScVal(); }
     else { val = nativeToScVal(a); }
-    console.log(`[stellar] arg[${i}] type=${typeof a} isArray=${Array.isArray(a)} isUint8=${a instanceof Uint8Array} scVal=`, val);
     return val;
   });
 
@@ -116,51 +121,36 @@ async function sendContractTx(
     .addOperation(contract.call(method, ...scArgs))
     .setTimeout(300)
     .build();
-  console.log('[stellar] tx built, XDR length:', tx.toXDR().length);
 
-  console.log('[stellar] simulating...');
   const sim = await server.simulateTransaction(tx);
-  console.log('[stellar] sim result:', JSON.stringify(sim).slice(0, 400));
   if (Api.isSimulationError(sim)) {
     throw new Error(formatError((sim as { error: string }).error));
   }
 
-  console.log('[stellar] assembling transaction...');
   const prepared = assembleTransaction(tx, sim).build();
-  console.log('[stellar] prepared XDR length:', prepared.toXDR().length);
 
   const freighter = await getFreighter();
   if (!freighter) throw new Error('Freighter not found');
 
-  console.log('[stellar] signing with Freighter...');
   const signResult = await freighter.signTransaction(prepared.toXDR(), {
     networkPassphrase: Networks.TESTNET,
     address: publicKey, // tell Freighter which account must sign (employee vs employer)
   });
-  console.log('[stellar] sign result error:', signResult.error, 'xdr length:', signResult.signedTxXdr?.length);
   if (signResult.error) throw new Error(`Signing failed: ${signResult.error.message}`);
   const signedXdr = signResult.signedTxXdr;
 
-  console.log('[stellar] parsing signed XDR with new Transaction()...');
   let signedTx;
   try {
     signedTx = new Transaction(signedXdr, Networks.TESTNET);
-    console.log('[stellar] parsed OK');
-  } catch (e) {
-    console.error('[stellar] new Transaction() failed:', e);
-    console.log('[stellar] falling back to TransactionBuilder.fromXDR...');
+  } catch {
     try {
       signedTx = TransactionBuilder.fromXDR(signedXdr, Networks.TESTNET);
-      console.log('[stellar] TransactionBuilder.fromXDR OK');
     } catch (e2) {
-      console.error('[stellar] TransactionBuilder.fromXDR also failed:', e2);
       throw e2;
     }
   }
 
-  console.log('[stellar] submitting to network...');
   const submitResult = await server.sendTransaction(signedTx);
-  console.log('[stellar] submit result:', submitResult.status, submitResult.hash);
 
   if (submitResult.status === 'ERROR') {
     throw new Error(`Submission failed: ${JSON.stringify(submitResult.errorResult)}`);
@@ -186,10 +176,22 @@ async function simulateReadOnly(
   const { Contract, TransactionBuilder, Networks, BASE_FEE, nativeToScVal, scValToNative } = stellar;
   const { Server, Api } = rpc;
 
+  // Validate inputs
+  if (!contractId || typeof contractId !== 'string' || !contractId.startsWith('C') || contractId.length !== 56) {
+    throw new Error('Invalid Stellar contract ID format');
+  }
+  if (!method || typeof method !== 'string' || method.length === 0) {
+    throw new Error('Invalid contract method');
+  }
+
   // Use deployer address for simulation source if no wallet connected
-  const DEPLOYER = process.env.NEXT_PUBLIC_DEPLOYER_ADDRESS ??
-    'GAO5NNZVKTORYRUR6E4XH43DFNGIVNDL7UCLDCOYUZITFXZSCC4RW2YX';
+  const DEPLOYER = 'GAO5NNZVKTORYRUR6E4XH43DFNGIVNDL7UCLDCOYUZITFXZSCC4RW2YX';
   const source = sourceKey ?? DEPLOYER;
+  
+  // Validate source address format
+  if (!source || typeof source !== 'string' || !source.startsWith('G') || source.length !== 56) {
+    throw new Error('Invalid source address format for read-only simulation');
+  }
 
   const server = new Server(RPC_URL);
   const account = await server.getAccount(source);
