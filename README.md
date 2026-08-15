@@ -6,8 +6,6 @@
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
----
-
 ## What this app does
 
 This is the browser client for MeritPay. It generates Groth16 zero-knowledge proofs entirely client-side (via `snarkjs` + WASM), then submits them to Soroban smart contracts on Stellar Testnet through a connected Freighter wallet. Employee KPI data (hours worked, sales flags) and salary figures never leave the browser as plaintext — only commitments, nullifiers, and boolean outcomes are sent on-chain.
