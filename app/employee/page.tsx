@@ -41,16 +41,22 @@ export default function EmployeePage() {
   const selectedClaim: ClaimEntry | null = claimBundle?.entries[selectedClaimIdx] ?? null;
   const claimAlreadyDone = selectedClaim ? isEntryClaimed(selectedClaim.nullifier) : false;
 
-  // Generate a new salt on mount and employee change
   const refreshSalt = useCallback(() => {
     setSalt(generateSalt());
   }, []);
 
   useEffect(() => {
     refreshSalt();
+  }, [refreshSalt]);
+
+  // Reset the form whenever a different employee is selected.
+  const [prevSelectedId, setPrevSelectedId] = useState(selectedId);
+  if (selectedId !== prevSelectedId) {
+    setPrevSelectedId(selectedId);
+    refreshSalt();
     setProofState('idle');
     setResult(null);
-  }, [selectedId, refreshSalt]);
+  }
 
   const selectedEmployee = MOCK_EMPLOYEES.find(e => e.id === selectedId)!;
 
