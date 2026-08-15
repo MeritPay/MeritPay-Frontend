@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import ProofBadge from '@/components/ProofBadge';
-import { MOCK_EMPLOYEES, type PayrollSummary } from '@/lib/types';
+import { MOCK_EMPLOYEES } from '@/lib/types';
 import { generateAuditorProof } from '@/lib/proof';
 
 // Mock payouts matching the circuit bonus logic:

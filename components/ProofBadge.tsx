@@ -29,7 +29,6 @@ export default function ProofBadge({ verified, label, size = 'md', hash }: Proof
   const r = d / 2;
   const outerR = r - 2;
   const innerR = r - 10;
-  const textR   = r - 6;
 
   // Arc path helpers for circular text (top arc)
   const arcPath = `M ${r - outerR + 2},${r} A ${outerR - 2},${outerR - 2} 0 0 1 ${r + outerR - 2},${r}`;
