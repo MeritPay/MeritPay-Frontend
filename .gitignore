@@ -1,2 +1,10 @@
 node_modules
 .next
+
+# local working notes, not part of the repo
+issues/
+
+# env files — never commit real config; the example is tracked
+.env
+.env.*
+!.env.local.example
