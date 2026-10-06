@@ -5,7 +5,10 @@ import { MOCK_EMPLOYEES } from './types';
 
 // ── Byte helpers (browser-safe) ───────────────────────────────────────────────
 
-function bigIntToBytes32(n: bigint): Uint8Array {
+export function bigIntToBytes32(n: bigint): Uint8Array {
+  if (n < 0n || n >= (1n << 256n)) {
+    throw new RangeError(`bigIntToBytes32: value out of range [0, 2^256): ${n.toString()}`);
+  }
   const hex = n.toString(16).padStart(64, '0');
   const out = new Uint8Array(32);
   for (let i = 0; i < 32; i++) {

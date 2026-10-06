@@ -258,7 +258,7 @@ export async function fundPool(xlmAmount: number): Promise<string> {
 }
 
 /** Map Soroban contract error codes from the payroll contract to readable messages. */
-function formatSimulationError(raw: string): string {
+export function formatSimulationError(raw: string): string {
   const payrollErrors: Record<number, string> = {
     1: 'Contract is already initialized.',
     2: 'Contract is not initialized.',
@@ -279,7 +279,7 @@ function formatSimulationError(raw: string): string {
   return `Simulation failed: ${raw}`;
 }
 
-function formatClaimSimulationError(raw: string): string {
+export function formatClaimSimulationError(raw: string): string {
   const claimErrors: Record<number, string> = {
     1: 'Claim contract is already initialized.',
     2: 'Claim contract is not initialized.',
