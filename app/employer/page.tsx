@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { fundPool, getPoolBalance, getEpoch, explorerTxUrl } from '@/lib/stellar';
 import WalletConnect from '@/components/WalletConnect';
 
-interface EmployeeRow {
+export interface EmployeeRow {
   id: number;
   name: string;
   baseSalary: number;
@@ -22,7 +22,7 @@ function makeRow(): EmployeeRow {
   return { id: _nextId++, name: '', baseSalary: 0, hoursThreshold: 160, hoursBonus: 0, salesBonus: 0 };
 }
 
-function parseCSV(text: string): EmployeeRow[] | string {
+export function parseCSV(text: string): EmployeeRow[] | string {
   const lines = text.trim().split(/\r?\n/).filter(Boolean);
   if (lines.length < 2) return 'CSV must have a header row and at least one data row.';
 
