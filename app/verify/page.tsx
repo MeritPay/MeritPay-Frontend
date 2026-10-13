@@ -9,7 +9,7 @@ import {
   generateSalt,
   formatProofForDisplay,
 } from '@/lib/proof';
-import { executePayroll, explorerTxUrl, getEpoch } from '@/lib/stellar';
+import { executePayroll, explorerTxUrl, getEpoch, isValidStellarAddress } from '@/lib/stellar';
 import { buildClaimEntry, saveClaimBundle } from '@/lib/claim';
 import ProofBadge from '@/components/ProofBadge';
 import EmployeeCard from '@/components/EmployeeCard';
@@ -72,8 +72,8 @@ export default function VerifyPage() {
   const [chainEpoch, setChainEpoch] = useState<number>(0);
 
   // Validate wallet address format before comparison
-  const isValidWalletFormat = walletAddress && walletAddress.startsWith('G') && walletAddress.length === 56;
-  const isAdminWallet = isValidWalletFormat && walletAddress === ADMIN_ADDRESS;
+  const isValidWalletFormat = Boolean(walletAddress && isValidStellarAddress(walletAddress));
+  const isAdminWallet = Boolean(ADMIN_ADDRESS && isValidWalletFormat && walletAddress === ADMIN_ADDRESS);
   const nextPayrollEpoch = chainEpoch + 1;
 
   // Load employer config from localStorage
