@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { fundPool, getPoolBalance, getEpoch, explorerTxUrl } from '@/lib/stellar';
+import { fundPool, getPoolBalance, getEpoch, explorerTxUrl, isValidStellarAddress } from '@/lib/stellar';
 import WalletConnect from '@/components/WalletConnect';
 
 interface EmployeeRow {
@@ -138,7 +138,7 @@ export default function EmployerPage() {
   const totalPool = rows.reduce((acc, r) => acc + r.baseSalary + r.hoursBonus + r.salesBonus, 0);
   const topUpNeeded = poolBalance !== null ? Math.max(0, totalPool - poolBalance) : 0;
   const parsedFundAmount = parseFloat(fundAmount);
-  const canFund = !!walletAddress && parsedFundAmount > 0 && fundState !== 'sending';
+  const canFund = Boolean(walletAddress && isValidStellarAddress(walletAddress) && parsedFundAmount > 0 && fundState !== 'sending');
 
   const handleFundPool = async () => {
     if (!canFund) return;
@@ -596,6 +596,9 @@ export default function EmployerPage() {
 
                 {!walletAddress && (
                   <p className="text-[#7A6F63] text-xs">Connect Freighter to deposit XLM into the payroll pool.</p>
+                )}
+                {walletAddress && !isValidStellarAddress(walletAddress) && (
+                  <p className="text-[#E07A5F] text-xs">Invalid connected wallet address format.</p>
                 )}
 
                 {fundState === 'success' && fundTxHash && (

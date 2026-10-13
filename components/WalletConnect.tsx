@@ -1,7 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { connectWallet, isWalletConnected } from '@/lib/stellar';
+import {
+  connectWallet,
+  isWalletConnected,
+  getConnectedNetwork,
+  isValidStellarAddress,
+  TESTNET_PASSPHRASE,
+} from '@/lib/stellar';
 
 type WalletState = 'idle' | 'connecting' | 'connected' | 'no-extension';
 
@@ -12,14 +18,26 @@ interface WalletConnectProps {
 export default function WalletConnect({ onConnect }: WalletConnectProps) {
   const [state, setState] = useState<WalletState>('idle');
   const [address, setAddress] = useState<string | null>(null);
+  const [networkName, setNetworkName] = useState<string>('Testnet');
+  const [isTestnet, setIsTestnet] = useState<boolean>(true);
+
+  const checkNetwork = async () => {
+    const net = await getConnectedNetwork();
+    if (net) {
+      const isTest = !net.networkPassphrase || net.networkPassphrase === TESTNET_PASSPHRASE;
+      setIsTestnet(isTest);
+      setNetworkName(net.network || (isTest ? 'Testnet' : 'Non-Testnet'));
+    }
+  };
 
   useEffect(() => {
     isWalletConnected().then(connected => {
       if (connected) {
-        connectWallet().then(pk => {
-          if (pk) {
+        connectWallet().then(async pk => {
+          if (pk && isValidStellarAddress(pk)) {
             setAddress(pk);
             setState('connected');
+            await checkNetwork();
             onConnect?.(pk);
           }
         });
@@ -32,10 +50,11 @@ export default function WalletConnect({ onConnect }: WalletConnectProps) {
     setState('connecting');
     try {
       const pk = await connectWallet();
-      // Validate wallet address format (Stellar public keys start with G and are 56 chars)
-      if (pk && pk.startsWith('G') && pk.length === 56) {
+      // Validate wallet address format using StrKey validation
+      if (pk && isValidStellarAddress(pk)) {
         setAddress(pk);
         setState('connected');
+        await checkNetwork();
         onConnect?.(pk);
       } else {
         const hasExt = typeof window !== 'undefined' &&
@@ -50,11 +69,24 @@ export default function WalletConnect({ onConnect }: WalletConnectProps) {
   const truncate = (addr: string) => addr.slice(0, 4) + '…' + addr.slice(-4);
 
   if (state === 'connected' && address) {
+    if (!isTestnet) {
+      return (
+        <div
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#D97706]/50 bg-[#D97706]/10"
+          title={`Connected to ${networkName}. Please switch Freighter network to Testnet.`}
+        >
+          <span className="w-2 h-2 rounded-full bg-[#D97706] animate-pulse-dot" />
+          <span className="font-mono text-xs text-[#E8DFD0]">{truncate(address)}</span>
+          <span className="text-xs font-semibold text-[#F59E0B]">Switch Freighter to Testnet</span>
+        </div>
+      );
+    }
+
     return (
       <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#2E2924] bg-[#1A1614]">
         <span className="w-2 h-2 rounded-full bg-[#4A8C6A] animate-pulse-dot" />
         <span className="font-mono text-xs text-[#E8DFD0]">{truncate(address)}</span>
-        <span className="text-xs text-[#7A6F63]">Testnet</span>
+        <span className="text-xs text-[#7A6F63]">{networkName}</span>
       </div>
     );
   }

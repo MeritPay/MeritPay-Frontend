@@ -2,6 +2,7 @@
 
 import type { MockProof } from './types';
 import { serializeProof, signalToBytes32 } from './proof';
+import { StrKey } from '@stellar/stellar-sdk';
 
 export const PAYROLL_CONTRACT_ID =
   process.env.NEXT_PUBLIC_PAYROLL_CONTRACT_ID ?? '';
@@ -9,9 +10,17 @@ export const CLAIM_CONTRACT_ID =
   process.env.NEXT_PUBLIC_CLAIM_CONTRACT_ID ?? '';
 export const VERIFIER_CONTRACT_ID =
   process.env.NEXT_PUBLIC_VERIFIER_CONTRACT_ID ?? '';
-export const NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015';
+export const TESTNET_PASSPHRASE = 'Test SDF Network ; September 2015';
+export const NETWORK_PASSPHRASE = TESTNET_PASSPHRASE;
 export const RPC_URL = 'https://soroban-testnet.stellar.org';
 export const EXPLORER_URL = 'https://stellar.expert/explorer/testnet';
+
+export class WrongNetworkError extends Error {
+  constructor(message: string = 'Freighter is not set to Testnet. Please switch network in Freighter.') {
+    super(message);
+    this.name = 'WrongNetworkError';
+  }
+}
 
 // ── Freighter helpers (v4 API) ────────────────────────────────────────────────
 
@@ -64,6 +73,40 @@ async function getConnectedKey(): Promise<string> {
   return key;
 }
 
+/** Get currently active network name and passphrase from Freighter. */
+export async function getConnectedNetwork(): Promise<{ network?: string; networkPassphrase?: string; error?: string } | null> {
+  const f = await getFreighter();
+  if (!f) return null;
+  try {
+    const details = await f.getNetworkDetails();
+    if (details.error) return { error: details.error };
+    return {
+      network: details.network,
+      networkPassphrase: details.networkPassphrase,
+    };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Assert that the connected Freighter wallet is configured for Stellar Testnet. */
+export async function assertTestnet(): Promise<void> {
+  const net = await getConnectedNetwork();
+  if (!net) throw new Error('Freighter wallet not found');
+  if (net.error) throw new Error(`Could not determine wallet network: ${net.error}`);
+  if (net.networkPassphrase && net.networkPassphrase !== TESTNET_PASSPHRASE) {
+    throw new WrongNetworkError(
+      `Freighter is connected to "${net.network ?? 'non-Testnet'}" (${net.networkPassphrase ?? ''}) instead of Testnet. Please switch your Freighter network to Testnet.`
+    );
+  }
+}
+
+/** Validate whether a given string is a valid Stellar Ed25519 public key (G...). */
+export function isValidStellarAddress(addr: string | null | undefined): boolean {
+  if (!addr || typeof addr !== 'string') return false;
+  return StrKey.isValidEd25519PublicKey(addr);
+}
+
 // ── Soroban SDK (lazy load to avoid SSR) ────────────────────────────────────
 // Import everything from the same module to avoid class identity mismatch.
 // @stellar/stellar-sdk re-exports its rpc submodule as `sdk.rpc`, so using
@@ -90,12 +133,15 @@ async function sendContractTx(
   const { Server, assembleTransaction, Api } = rpc;
 
   // Validate addresses before use
-  if (!publicKey.startsWith('G') || publicKey.length !== 56) {
+  if (!StrKey.isValidEd25519PublicKey(publicKey)) {
     throw new Error('Invalid Stellar public key format');
   }
   if (!contractId.startsWith('C') || contractId.length !== 56) {
     throw new Error('Invalid Stellar contract ID format');
   }
+
+  // Ensure wallet is connected to Testnet before simulating and submitting
+  await assertTestnet();
   
   const server = new Server(RPC_URL);
   const account = await server.getAccount(publicKey);
@@ -109,7 +155,9 @@ async function sendContractTx(
     else if (Array.isArray(a) && a.every(el => el instanceof Uint8Array)) {
       val = nativeToScVal(a.map(el => Buffer.from(el as Uint8Array)));
     }
-    else if (typeof a === 'string' && a.startsWith('G')) { val = new Address(a).toScVal(); }
+    else if (typeof a === 'string' && (StrKey.isValidEd25519PublicKey(a) || (a.startsWith('C') && a.length === 56))) {
+      val = new Address(a).toScVal();
+    }
     else { val = nativeToScVal(a); }
     return val;
   });
@@ -346,6 +394,10 @@ export async function claimPayout(
   payoutCircuit: number,
   recipientAddress: string,
 ): Promise<string> {
+  if (!StrKey.isValidEd25519PublicKey(recipientAddress)) {
+    throw new Error('Invalid recipient Stellar address format — must be a valid G... address');
+  }
+
   const proofBytes = serializeProof(proof);
   const signalBytes = publicSignals.map(s => signalToBytes32(s));
   const amountStroops = BigInt(Math.round(payoutCircuit)) * 10000n;

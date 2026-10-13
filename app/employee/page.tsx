@@ -10,7 +10,7 @@ import {
   loadClaimBundle,
   markEntryClaimed,
 } from '@/lib/claim';
-import { claimPayout, explorerTxUrl, connectWallet } from '@/lib/stellar';
+import { claimPayout, explorerTxUrl, connectWallet, isValidStellarAddress } from '@/lib/stellar';
 import ProofBadge from '@/components/ProofBadge';
 
 type ProofState = 'idle' | 'generating' | 'complete' | 'error';
@@ -87,9 +87,9 @@ export default function EmployeePage() {
 
   const handleClaimSalary = async () => {
     if (!selectedClaim || claimAlreadyDone || !walletAddress) return;
-    // Validate wallet address format
-    if (!walletAddress.startsWith('G') || walletAddress.length !== 56) {
-      setClaimError('Invalid wallet address format');
+    // Validate wallet address format using StrKey
+    if (!isValidStellarAddress(walletAddress)) {
+      setClaimError('Invalid Stellar recipient address. Please enter a valid G… public key.');
       setClaimState('error');
       return;
     }
@@ -223,9 +223,14 @@ export default function EmployeePage() {
                       Use Freighter
                     </button>
                   </div>
-                  {walletAddress && walletAddress.startsWith('G') && walletAddress.length === 56 && (
+                  {walletAddress && isValidStellarAddress(walletAddress) && (
                     <p className="text-[#5A9B78] text-xs font-mono">
                       → {walletAddress.slice(0, 6)}…{walletAddress.slice(-4)}
+                    </p>
+                  )}
+                  {walletAddress && !isValidStellarAddress(walletAddress) && (
+                    <p className="text-[#D07070] text-xs font-mono">
+                      Invalid Stellar address (must be a valid 56-character Ed25519 public key starting with G)
                     </p>
                   )}
                 </div>
@@ -233,10 +238,10 @@ export default function EmployeePage() {
                 <button
                   type="button"
                   onClick={handleClaimSalary}
-                  disabled={!walletAddress || claimState === 'claiming' || claimAlreadyDone}
+                  disabled={!walletAddress || !isValidStellarAddress(walletAddress) || claimState === 'claiming' || claimAlreadyDone}
                   className="w-full py-3 rounded-xl font-semibold text-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{
-                    background: walletAddress && !claimAlreadyDone
+                    background: walletAddress && isValidStellarAddress(walletAddress) && !claimAlreadyDone
                       ? 'linear-gradient(135deg, #5A9B78, #3B6B52)'
                       : 'rgba(90,155,120,0.15)',
                     color: 'white',
