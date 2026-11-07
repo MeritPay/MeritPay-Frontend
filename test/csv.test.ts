@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCSV } from '../app/employer/page';
+import { parseCSV } from '../lib/csv';
 
 describe('CSV Parser (employer payroll batch import)', () => {
   const validHeader = 'name,base_salary,hours_threshold,hours_bonus,sales_bonus';

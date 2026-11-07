@@ -268,6 +268,8 @@ export function formatSimulationError(raw: string): string {
     6: 'Insufficient pool balance — fund the pool before executing payroll.',
     7: 'Invalid payroll amount — total must be positive.',
     8: 'Claim contract not configured — redeploy or call set_claim_contract.',
+    9: 'Contract is paused; no state-mutating calls accepted.',
+    10: 'No pending admin transfer is in progress.',
   };
 
   const match = raw.match(/Error\(Contract,\s*#(\d+)\)/);
@@ -290,6 +292,9 @@ export function formatClaimSimulationError(raw: string): string {
     7: 'Insufficient escrow in the claim contract.',
     8: 'Payroll epoch has not been executed yet.',
     9: 'Proof public signals do not match claim arguments.',
+    10: 'Unauthorized — caller must be contract administrator.',
+    11: 'Claim contract is paused; payouts are temporarily halted.',
+    12: 'No pending admin transfer is in progress.',
   };
 
   const match = raw.match(/Error\(Contract,\s*#(\d+)\)/);
