@@ -61,9 +61,10 @@ describe('Claim & Payout calculation helpers', () => {
       expect(payoutCircuitToStroops(0)).toBe(0n);
     });
 
-    it('rounds fractional units before multiplying to integer stroops', () => {
-      expect(payoutCircuitToStroops(5000.4)).toBe(50000000n);
-      expect(payoutCircuitToStroops(5000.6)).toBe(50010000n);
+    it('throws TypeError on non-integer circuit unit input rather than silently rounding', () => {
+      expect(() => payoutCircuitToStroops(5000.4)).toThrow(TypeError);
+      expect(() => payoutCircuitToStroops(5000.6)).toThrow(/expected integer circuit units/);
+      expect(() => payoutCircuitToStroops(NaN)).toThrow(TypeError);
     });
   });
 

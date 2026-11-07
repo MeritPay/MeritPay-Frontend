@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
   bigIntToBytes32,
+  coordinateToBytes32,
   signalToBytes32,
   serializeProof,
   serializeVK,
+  BN254_BASE_FIELD_P,
+  BN254_SCALAR_FIELD_R,
 } from '../lib/proof';
 import type { MockProof } from '../lib/types';
 import proofFixture from './fixtures/proof.fixture.json';
@@ -56,7 +59,29 @@ describe('Byte serialization & proof layer', () => {
     });
   });
 
-  describe('signalToBytes32', () => {
+  describe('coordinateToBytes32 (BN254 base field p boundary checks)', () => {
+    it('accepts 0 and p - 1 as valid curve coordinates', () => {
+      const bytes0 = coordinateToBytes32(0n);
+      expect(bytes0.length).toBe(32);
+      expect(bytes0.every(b => b === 0)).toBe(true);
+
+      const pMinus1 = BN254_BASE_FIELD_P - 1n;
+      const bytesMax = coordinateToBytes32(pMinus1);
+      expect(bytesMax.length).toBe(32);
+      expect(bytesMax[31]).toBe(Number(pMinus1 & 0xffn));
+    });
+
+    it('throws RangeError at p and p + 1', () => {
+      expect(() => coordinateToBytes32(BN254_BASE_FIELD_P)).toThrow(RangeError);
+      expect(() => coordinateToBytes32(BN254_BASE_FIELD_P + 1n)).toThrow(/out of BN254 base field range/);
+    });
+
+    it('throws RangeError on negative coordinates', () => {
+      expect(() => coordinateToBytes32(-1n)).toThrow(RangeError);
+    });
+  });
+
+  describe('signalToBytes32 (BN254 scalar field r boundary checks)', () => {
     it('converts decimal string signals to 32-byte big-endian buffers', () => {
       const bytes = signalToBytes32('1000');
       expect(bytes.length).toBe(32);
@@ -64,9 +89,22 @@ describe('Byte serialization & proof layer', () => {
       expect(bytes[31]).toBe(0xE8);
     });
 
-    it('throws on out-of-range signal string', () => {
+    it('accepts r - 1 as the maximum valid public signal', () => {
+      const rMinus1 = BN254_SCALAR_FIELD_R - 1n;
+      const bytes = signalToBytes32(rMinus1.toString());
+      expect(bytes.length).toBe(32);
+      expect(bytes[31]).toBe(Number(rMinus1 & 0xffn));
+    });
+
+    it('throws RangeError at r and r + 1', () => {
+      expect(() => signalToBytes32(BN254_SCALAR_FIELD_R.toString())).toThrow(RangeError);
+      expect(() => signalToBytes32((BN254_SCALAR_FIELD_R + 1n).toString())).toThrow(/out of BN254 scalar field range/);
+    });
+
+    it('throws on values >= 2^256 or negative signals', () => {
       const overflowStr = (1n << 256n).toString();
       expect(() => signalToBytes32(overflowStr)).toThrow(RangeError);
+      expect(() => signalToBytes32('-5')).toThrow(RangeError);
     });
   });
 
@@ -130,6 +168,21 @@ describe('Byte serialization & proof layer', () => {
       expect(buf[159]).toBe(40);
       // Offset 160..192 must contain 30 (c0)
       expect(buf[191]).toBe(30);
+    });
+
+    it('rejects proofs with coordinates >= BN254 base field p', () => {
+      const invalidProof: MockProof = {
+        protocol: 'groth16',
+        curve: 'bn128',
+        pi_a: [BN254_BASE_FIELD_P.toString(), '2', '1'],
+        pi_b: [
+          ['10', '20'],
+          ['30', '40'],
+          ['1', '0'],
+        ],
+        pi_c: ['5', '6', '1'],
+      };
+      expect(() => serializeProof(invalidProof)).toThrow(RangeError);
     });
   });
 
