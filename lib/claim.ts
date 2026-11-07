@@ -18,7 +18,10 @@ export function payoutCircuitToXlm(payoutCircuit: number): number {
 }
 
 export function payoutCircuitToStroops(payoutCircuit: number): bigint {
-  return BigInt(Math.round(payoutCircuit)) * 10000n;
+  if (!Number.isInteger(payoutCircuit)) {
+    throw new TypeError(`payoutCircuitToStroops: expected integer circuit units, got: ${payoutCircuit}`);
+  }
+  return BigInt(payoutCircuit) * 10000n;
 }
 
 export function saveClaimBundle(bundle: ClaimBundle): void {

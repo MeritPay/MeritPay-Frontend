@@ -5,7 +5,16 @@ import { MOCK_EMPLOYEES } from './types';
 
 // ── Byte helpers (browser-safe) ───────────────────────────────────────────────
 
-function bigIntToBytes32(n: bigint): Uint8Array {
+// BN254 Base Field Modulus (p) — coordinates of G1 and G2 curve points must be in [0, p)
+export const BN254_BASE_FIELD_P = 21888242871839275222246405745257275088696311157297823662689037894645226208583n;
+
+// BN254 Scalar Field Modulus (r) — public inputs and signals must be in [0, r)
+export const BN254_SCALAR_FIELD_R = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+
+export function bigIntToBytes32(n: bigint): Uint8Array {
+  if (n < 0n || n >= (1n << 256n)) {
+    throw new RangeError(`bigIntToBytes32: value out of range [0, 2^256): ${n.toString()}`);
+  }
   const hex = n.toString(16).padStart(64, '0');
   const out = new Uint8Array(32);
   for (let i = 0; i < 32; i++) {
@@ -14,12 +23,20 @@ function bigIntToBytes32(n: bigint): Uint8Array {
   return out;
 }
 
+export function coordinateToBytes32(coord: bigint | string): Uint8Array {
+  const n = typeof coord === 'bigint' ? coord : BigInt(coord);
+  if (n < 0n || n >= BN254_BASE_FIELD_P) {
+    throw new RangeError(`coordinateToBytes32: coordinate out of BN254 base field range [0, p): ${n.toString()}`);
+  }
+  return bigIntToBytes32(n);
+}
+
 // Serialize a Groth16 proof to 256 bytes for Soroban.
 // Wire format: pi_a.x(32) | pi_a.y(32) | pi_b.x_im(32) | pi_b.x_re(32) | pi_b.y_im(32) | pi_b.y_re(32) | pi_c.x(32) | pi_c.y(32)
 export function serializeProof(proof: MockProof): Uint8Array {
   const out = new Uint8Array(256);
   let off = 0;
-  const write = (s: string) => { out.set(bigIntToBytes32(BigInt(s)), off); off += 32; };
+  const write = (s: string) => { out.set(coordinateToBytes32(s), off); off += 32; };
 
   write(proof.pi_a[0]);
   write(proof.pi_a[1]);
@@ -48,15 +65,15 @@ export function serializeVK(vkey: Record<string, unknown>): Uint8Array {
   let off = 0;
 
   const writeG1 = (p: string[]) => {
-    buf.set(bigIntToBytes32(BigInt(p[0])), off); off += 32;
-    buf.set(bigIntToBytes32(BigInt(p[1])), off); off += 32;
+    buf.set(coordinateToBytes32(p[0]), off); off += 32;
+    buf.set(coordinateToBytes32(p[1]), off); off += 32;
   };
   const writeG2 = (p: string[][]) => {
     // wire: x_im(32) | x_re(32) | y_im(32) | y_re(32)
-    buf.set(bigIntToBytes32(BigInt(p[0][1])), off); off += 32; // x_im
-    buf.set(bigIntToBytes32(BigInt(p[0][0])), off); off += 32; // x_re
-    buf.set(bigIntToBytes32(BigInt(p[1][1])), off); off += 32; // y_im
-    buf.set(bigIntToBytes32(BigInt(p[1][0])), off); off += 32; // y_re
+    buf.set(coordinateToBytes32(p[0][1]), off); off += 32; // x_im
+    buf.set(coordinateToBytes32(p[0][0]), off); off += 32; // x_re
+    buf.set(coordinateToBytes32(p[1][1]), off); off += 32; // y_im
+    buf.set(coordinateToBytes32(p[1][0]), off); off += 32; // y_re
   };
 
   writeG1(vk.vk_alpha_1);    // [0..64)
@@ -73,9 +90,14 @@ export function serializeVK(vkey: Record<string, unknown>): Uint8Array {
   return buf;
 }
 
-// Convert a public signal (decimal BigInt string) to a 32-byte big-endian buffer.
-export function signalToBytes32(signal: string): Uint8Array {
-  return bigIntToBytes32(BigInt(signal));
+// Convert a public signal (decimal BigInt string or bigint) to a 32-byte big-endian buffer.
+// Bound-checked against the BN254 scalar field modulus r.
+export function signalToBytes32(signal: string | bigint): Uint8Array {
+  const n = typeof signal === 'bigint' ? signal : BigInt(signal);
+  if (n < 0n || n >= BN254_SCALAR_FIELD_R) {
+    throw new RangeError(`signalToBytes32: public signal out of BN254 scalar field range [0, r): ${n.toString()}`);
+  }
+  return bigIntToBytes32(n);
 }
 
 // ── snarkjs loader (lazy, browser-only) ───────────────────────────────────────
